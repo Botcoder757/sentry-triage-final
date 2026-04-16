@@ -181,6 +181,6 @@ CSS variables (`--c-bg`, `--c-surface`, `--c-text`, `--c-accent`, etc.) and util
 ## Links
 
 - [App SDK](https://www.npmjs.com/package/@construct-computer/app-sdk)
-- [Create a new app](https://www.npmjs.com/package/@construct-computer/create-construct-app)
+- [Use this template](https://github.com/construct-computer/construct-app-sample/generate)
 - [App Store](https://registry.construct.computer)
 - [Developer Docs](https://registry.construct.computer/publish)
