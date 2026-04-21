@@ -9,8 +9,8 @@ importers:
   .:
     dependencies:
       '@construct-computer/app-sdk':
-        specifier: file:../../packages/app-sdk
-        version: file:../../packages/app-sdk
+        specifier: ^0.2.6
+        version: 0.2.6
     devDependencies:
       '@cloudflare/workers-types':
         specifier: ^4.20241205.0
@@ -70,8 +70,8 @@ packages:
   '@cloudflare/workers-types@4.20260415.1':
     resolution: {integrity: sha512-9sEq9cZzr4s075U/TfjvdSmiX+u2NMOAIcFcCfd24FDtPfR7Iw3SbuQxkcgtpx/Bvg0au9PmQ0ZJfBaIitG0gw==}
 
-  '@construct-computer/app-sdk@file:../../packages/app-sdk':
-    resolution: {directory: ../../packages/app-sdk, type: directory}
+  '@construct-computer/app-sdk@0.2.6':
+    resolution: {integrity: sha512-HRlVpO5BOH5Fgkwo2qtphbpgubKqadKhk9PqrqIOnmBMHXFGlc+NFE8/4OCo+Sai13AVS6ISRRfgKPwPrTEsgA==}
 
   '@cspotcode/source-map-support@0.8.1':
     resolution: {integrity: sha512-IchNf6dN4tHoMFIn/7OE8LWZ19Y6q/67Bmf6vnGREv8RSbBVb9LPJxEcnwrcwX6ixSvaiGoomAUvu4YSxXrVgw==}
@@ -526,7 +526,7 @@ snapshots:
 
   '@cloudflare/workers-types@4.20260415.1': {}
 
-  '@construct-computer/app-sdk@file:../../packages/app-sdk': {}
+  '@construct-computer/app-sdk@0.2.6': {}
 
   '@cspotcode/source-map-support@0.8.1':
     dependencies:
