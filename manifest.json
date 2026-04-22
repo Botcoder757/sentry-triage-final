@@ -1,27 +1,17 @@
 {
-  "$schema": "https://registry.construct.computer/schemas/manifest.json",
-  "name": "Text Tools",
-  "description": "Handy text utilities plus a demo of calling platform tools (notifications, calendar) from an app.",
-  "author": {
-    "name": "Construct",
-    "url": "https://github.com/construct-computer"
-  },
-  "owners": ["construct-computer"],
-  "icon": "ui/icon.svg",
-  "categories": ["utilities"],
-  "tags": ["text", "encoding", "example", "demo", "gateway"],
-  "ui": {
-    "entry": "ui/index.html",
-    "width": 720,
-    "height": 640
-  },
+  "$schema": "https://raw.githubusercontent.com/construct-computer/app-sdk/main/schemas/manifest.schema.json",
+  "name": "Sentry Auto-Triage",
+  "description": "Full-intelligence Sentry triage agent. Detects regressions, classifies severity (P0-P3), deduplicates tickets, and posts rich incident summaries.",
+  "categories": ["developer-tools"],
+  "ui": { "entry": "ui/index.html", "width": 720, "height": 720 },
   "permissions": {
-    "storage": "64KB",
-    "uses": {
-      "tools": [
-        "notify.send",
-        "calendar.list_events"
-      ]
-    }
-  }
+    "network": ["sentry.io", "api.github.com", "api.linear.app", "hooks.slack.com"]
+  },
+  "tools": [
+    { "name": "triage_issue",             "description": "ALL-IN-ONE: Parses stack trace, classifies priority (P0-P3), and detects regression from a Sentry issue+event JSON." },
+    { "name": "blame_code_line",          "description": "Uses GitHub GraphQL git blame to find the EXACT author, commit, and message for a specific line in a file." },
+    { "name": "create_ticket_and_notify", "description": "ALL-IN-ONE: Generates formatted Linear ticket markdown AND Slack message from triage data." },
+    { "name": "deduplicate_check",        "description": "Checks if this Sentry issue was already triaged in the last hour. Returns already_triaged: true to skip." },
+    { "name": "record_triage",            "description": "Records a completed triage to prevent duplicate tickets for 1 hour." }
+  ]
 }

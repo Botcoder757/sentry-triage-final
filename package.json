@@ -9,7 +9,8 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@construct-computer/app-sdk": "^0.2.6"
+    "@construct-computer/app-sdk": "^0.2.6",
+    "@sentry/node": "^10.49.0"
   },
   "devDependencies": {
     "@cloudflare/workers-types": "^4.20241205.0",

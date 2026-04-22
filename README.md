@@ -1,186 +1,141 @@
-[![Construct App](https://img.shields.io/badge/Construct-App-6366f1)](https://construct.computer)
-[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+# Sentry Auto-Triage: Autonomous Construct Agent Workplace
 
-# Construct App: Text Tools
 
-A reference app for [Construct](https://construct.computer) that ships nine everyday developer utilities. It demonstrates the recommended pattern for building a Construct app: register MCP tools via `ConstructApp`, wire them to a grouped GUI, and serve locally with Cloudflare Workers. Fork this repo as a starting point for your own app.
 
-## Tools
+An intelligent, fully autonomous business workflow agent built for the **CONSTRUCT × Techfluence 2026 App Store Bounty Track**.
 
-| Tool | Description |
-|---|---|
-| `slugify` | Convert a string into a URL-safe slug |
-| `word_count` | Count words, characters, and lines |
-| `reverse` | Reverse a string by Unicode code point (emoji-safe) |
-| `json_format` | Format, minify, or validate a JSON string |
-| `base64` | Encode or decode Base64 |
-| `hash` | Generate SHA-1 / SHA-256 / SHA-384 / SHA-512 hashes |
-| `uuid` | Generate one or more v4 UUIDs |
-| `timestamp` | Convert between Unix timestamps and ISO 8601 dates |
-| `url_encode` | URL-encode or decode a string |
+This is not a simple notification wrapper or a chat bot. It is a true, persistent, autonomous edge application running on Cloudflare Workers that equips a **Construct OS Agent** to handle the entire lifecycle of an incident exactly like a Human DevOps/SRE Engineer would.
 
-Every tool is available to both the AI assistant (via MCP) and the visual GUI.
 
-## Getting Started
+
+## 🏆 Bounty Submission Details
+
+### 1. Business Impact: Real, End-to-End Automation
+When a Sentry alert fires, resolving it requires context switching across 4-5 different web apps, taking 15-30 minutes of human time. This app completely entirely eliminates that operational overhead:
+1. **Listens (Sentry):** Receives incident webhooks natively.
+2. **Analyzes (Intelligent Agent):** Parses the stack trace, identifies the precise culprit file and line, and calculates an algorithmic priority score (e.g. fatal + spike = P0, warning + old = P3).
+3. **Investigates (GitHub):** Executes a GraphQL git-blame on the exact culprit line to find the offending commit message and author.
+4. **Documents (Linear):** Formats a rich Markdown ticket containing the stack trace, regression evidence, and code blame, directly assigning priority natively.
+5. **Alerts (Slack):** Posts a clean, actionable summary to the engineering team's `#incidents` channel with ticket links attached.
+
+### 2. Workflow Novelty
+Our application implements complex logic typically missing from simple AI agents:
+- **Stateful Deduplication check:** Ensures that an incident is only triaged once an hour to protect the team from alert fatigue and duplicate tickets.
+- **Micro-Analysis:** Sentry provides long messy traces; our specific `triage_issue` tool filters out framework internals and hones strictly on the precise application code that threw the error.
+- **Git Blame Accuracy:** The agent executes a recursive GraphQL call back into GitHub to find the actual code owner of the line, not just whoever touched the file last.
+
+### 3. Technical Quality
+Built natively on **Cloudflare Workers** using `@construct-computer/app-sdk`. 
+- Completely Serverless & Edge Optimized.
+- Bypasses slow agent prompting by performing data manipulation natively in TypeScript edge functions before returning pure, actionable data to the Construct LLM agent.
+
+---
+
+## 👨‍⚖️ FOR THE JUDGES: How to Test
+
+### **Prerequisites & Credentials**
+To run this end-to-end exactly as intended, you need accounts linked via **Composio** inside your Construct OS Desktop App sandbox:
+1. **Sentry** (Project Issues enabled)
+2. **Linear** (Ticket creation permissions)
+3. **Slack** (Message post permissions in a channel e.g. `#incidents`)
+4. **GitHub Personal Access Token** (Optional but recommended for precise blame matching. Needed in configuration)
+
+### **Testing Locally or via Deployed App**
+
+The App is deployed LIVE to Cloudflare Workers: 
+`https://construct-app-sentry-auto-agent.naikprathamesh782.workers.dev`
+
+**Step 1. Link to Construct Desktop**
+1. Open up **Construct Desktop App** → **Settings** → **Developer**.
+2. Toggle **Developer Mode** to ON.
+3. Under **Connect Dev Server**, paste `https://construct-app-sentry-auto-agent.naikprathamesh782.workers.dev` and click **Connect**.
+4. Construct will load the UI!
+
+**Step 2. Configure the App Environment**
+1. In the beautifully redesigned App UI, click **⚙️ Project Configuration**.
+2. Fill out your details:
+   - **Sentry Org & Project**: e.g. `acme-corp` and `backend-api`
+   - **GitHub Repo & Branch**: e.g. `construct-computer/app-sdk` and `main`
+   - **Slack Channel**: e.g. `#incidents-test`
+   - **Linear Team ID**: e.g. `CSTC-1234`
+   - **GitHub Token**: Paste your classic `ghp_...` token so the GraphQL git-blame tool works.
+3. Click "Save Configuration".
+
+**Step 3. Trigger the Autonomous Pipeline!**
+You have two ways to execute the workflow:
+- **Manual Scan**: Click the big red button, **"Scan Sentry & Run Full Triage"**. The desktop agent will wake up, discover the last 3 unresolved issues from Sentry, and independently execute the 6-step cross-platform triage logic. 
+- **Automatic Webhook**: Copy the webhook URL from the bottom of the UI and paste it into a Sentry Alert Rule. The desktop will transparently poll our Worker, spinning into action the moment an alert fires:
+  ```
+  https://construct-app-sentry-auto-agent.naikprathamesh782.workers.dev/webhook
+  ```
+
+Watch your Construct Chat Panel. The Agent will transparently declare it is fetching, parsing, git blaming, filing, and notifying across your tech stack!
+
+### **Quick Curl Tests (No Setup Required)**
+
+You can also verify the deployed Worker directly without any credentials:
+
+```bash
+# 1. Health check
+curl https://construct-app-sentry-auto-agent.naikprathamesh782.workers.dev/health
+
+# 2. Simulate a Sentry webhook
+curl -X POST https://construct-app-sentry-auto-agent.naikprathamesh782.workers.dev/webhook \
+  -H "Content-Type: application/json" \
+  -d '{"data": {"issue": {"id": "abc123"}}}'
+
+# 3. Check pending queue
+curl https://construct-app-sentry-auto-agent.naikprathamesh782.workers.dev/pending
+
+# 4. Test triage_issue tool
+curl -X POST https://construct-app-sentry-auto-agent.naikprathamesh782.workers.dev/tools/triage_issue \
+  -H "Content-Type: application/json" \
+  -d '{
+    "issue_json": "{\"level\":\"fatal\",\"count\":200,\"userCount\":80,\"title\":\"TypeError: Cannot read properties of null\",\"firstSeen\":\"2026-04-22T00:00:00Z\",\"lastSeen\":\"2026-04-22T01:00:00Z\"}",
+    "event_json": "{}",
+    "limit": 5
+  }'
+
+# 5. Test deduplicate_check tool
+curl -X POST https://construct-app-sentry-auto-agent.naikprathamesh782.workers.dev/tools/deduplicate_check \
+  -H "Content-Type: application/json" \
+  -d '{"issue_id": "abc123"}'
+```
+
+---
+
+## 🛠️ Architecture & Under the Hood
+
+### Application Tools
+The App SDK serves 5 precise tools dynamically injected into the workspace of the Construct Agent at runtime:
+
+| Tool | Capability |
+|------|-----------|
+| `triage_issue` | Single-shot utility that parses massive JSON footprints into a 20-word summary, assigns P0-P3, and scans for regression behavior based on event counts. |
+| `blame_code_line` | Interfaces with GitHub's GraphQL `blame` API to execute exact line matching. |
+| `create_ticket_and_notify` | Consolidates Linear Markdowns & Slack rich-text formats to lower the Agent's token footprint. |
+| `deduplicate_check` | Stateful 1-hour rolling deduplication map memory. |
+| `record_triage` | Post-execution hook to commit the triage session. |
+
+### The "All-in-One" Edge Compute Design Pattern
+A common mistake when building Agents is providing them hundreds of raw granular micro-tools (e.g. `parse_JSON`, `regex_match`, `timestamp_convert`), which drains tokens and forces the deep-learning models to hallucinate intermediate steps.
+
+Our `server.ts` combines data manipulation, analytics, and data-cleansing into rigid edge-compute abstractions, leaving the LLM free to perform the one thing it is unmatched at doing: *Orchestrating Business Decisions based on the parsed output.*
+
+## 💻 Local Development
+
+Want to test it locally?
 
 ```bash
 # Clone
-git clone https://github.com/construct-computer/construct-app-sample.git
-cd construct-app-sample
+git clone https://github.com/construct-computer/sentry-auto-agent.git
+cd sentry-auto-agent
 
 # Install dependencies
-pnpm install
+npm install
 
 # Start the dev server (runs on localhost:8787)
-pnpm dev
+npm run dev
 ```
 
-## Project Structure
-
-```
-construct-app-sample/
-├── manifest.json          App metadata — Construct reads this to install your app
-├── server.ts              MCP server — registers tools using ConstructApp
-├── wrangler.toml          Cloudflare Workers config
-├── tsconfig.json          TypeScript config (server)
-├── ui/
-│   ├── index.html         GUI — grouped tool buttons calling tools via the SDK
-│   ├── app.js             UI logic with construct.* bridge calls
-│   ├── construct.d.ts     TypeScript types for the construct.* globals
-│   ├── jsconfig.json      JS project config (enables autocomplete in UI code)
-│   └── icon.svg           App icon (256x256)
-├── package.json
-└── README.md
-```
-
-- **`manifest.json`** -- declares your app's name, description, icon, categories, and UI dimensions.
-- **`server.ts`** -- the MCP server. Uses `ConstructApp` to register tools with `app.tool(name, definition)`. Each handler returns a string or a `ToolResult`. Asset serving, CORS, and `/ui/*` rewriting are handled automatically by the SDK.
-- **`ui/index.html`** -- the GUI. Loads the Construct SDK (`construct.js` + `construct.css`) from the registry and organises tools into labelled groups.
-- **`ui/app.js`** -- UI logic. Calls tools via `construct.tools.call(name, args)` and renders results.
-- **`ui/construct.d.ts`** -- TypeScript ambient types for the `construct.*` globals injected into the iframe. Provides autocomplete in `app.js`.
-
-## Adding a New Tool
-
-Register the tool in `server.ts`:
-
-```typescript
-app.tool('my_tool', {
-  description: 'What the AI sees when deciding whether to use this tool.',
-  parameters: {
-    input: { type: 'string', description: 'The input value' },
-    mode: { type: 'string', enum: ['a', 'b'], description: 'Operation mode' },
-  },
-  handler: async (args) => {
-    const input = args.input as string;
-    return `Result: ${input}`;
-  },
-});
-```
-
-Add a button in `ui/index.html` inside the appropriate group:
-
-```html
-<button data-tool="my_tool">My Tool</button>
-<!-- or with extra args: -->
-<button data-tool="my_tool" data-args='{"mode":"a"}'>My Tool (A)</button>
-```
-
-The tool is automatically available to both the AI assistant and the GUI.
-
-## Testing
-
-Test the MCP endpoint directly with curl:
-
-```bash
-# Health check
-curl http://localhost:8787/health
-
-# List tools
-curl -X POST http://localhost:8787/mcp \
-  -H 'Content-Type: application/json' \
-  -d '{"jsonrpc":"2.0","id":1,"method":"tools/list"}'
-
-# Call a tool
-curl -X POST http://localhost:8787/mcp \
-  -H 'Content-Type: application/json' \
-  -d '{"jsonrpc":"2.0","id":2,"method":"tools/call","params":{"name":"uuid","arguments":{"count":3}}}'
-```
-
-## Testing in Construct
-
-With the dev server running:
-
-1. Open Construct → **Settings** → **Developer**
-2. Toggle **Developer Mode** on
-3. Under **Connect Dev Server**, paste `http://localhost:8787` and click **Connect**
-
-Construct calls your server's `/health` and `/mcp` endpoints to register the app, and opens your UI in a sandboxed window. The agent can now call your tools.
-
-For remote testing, expose your dev server with [cloudflared](https://developers.cloudflare.com/cloudflare-one/connections/app-network/create-tunnel/):
-
-```bash
-cloudflared tunnel --url http://localhost:8787
-```
-
-Use the resulting `https://…trycloudflare.com` URL in the Connect Dev Server field.
-
-## How It Works
-
-### Dev mode (`wrangler dev`)
-
-- The SDK's `fetch()` handler automatically adds CORS headers to every response, rewrites `/ui/*` requests to match the published URL structure, and serves static files from `ui/` via the Cloudflare ASSETS binding.
-- The Construct desktop fetches the HTML, strips the `<script src="…construct.js">` / `<link href="…construct.css">` tags, and injects its own bridge that exposes `construct.tools`, `construct.ui`, `construct.state`, and `construct.agent`.
-
-### Published mode (registry)
-
-At deploy time, the registry CI bundles `server.ts` into the shared registry worker. The app is then reachable at `https://text-tools-<nanoid>.apps.construct.computer`:
-
-- `POST /mcp` → MCP JSON-RPC dispatched to the bundled handler
-- `GET  /ui/` → proxied from GitHub raw content at the pinned commit
-- `GET  /icon` → proxied icon
-
-## Publishing
-
-Publish to the [Construct App Registry](https://registry.construct.computer):
-
-1. Push to a public GitHub repo
-2. Fork [construct-computer/app-registry](https://github.com/construct-computer/app-registry)
-3. Add `apps/text-tools.json`:
-
-```json
-{
-  "repo": "https://github.com/construct-computer/construct-app-sample",
-  "versions": [
-    { "version": "0.1.0", "commit": "<40-char SHA>", "date": "2026-04-16" }
-  ]
-}
-```
-
-4. Open a pull request — CI validates your manifest, and once merged your app appears in the registry
-
-See the full guide at [registry.construct.computer/publish](https://registry.construct.computer/publish).
-
-## SDK Reference
-
-The Construct SDK is injected into your app's iframe. Key APIs:
-
-| API | Description |
-|---|---|
-| `construct.ready(callback)` | Run code when the SDK bridge is ready |
-| `construct.tools.call(name, args)` | Call a tool, get the full result object |
-| `construct.tools.callText(name, args)` | Call a tool, get just the text result |
-| `construct.ui.setTitle(title)` | Update the window title bar |
-| `construct.ui.getTheme()` | Get the current theme (dark/light + accent) |
-| `construct.ui.close()` | Close the app window |
-| `construct.state.get()` / `.set(state)` | Read/write persistent app state |
-| `construct.state.onUpdate(callback)` | Subscribe to state changes |
-| `construct.agent.notify(message)` | Send a message to the AI agent |
-
-CSS variables (`--c-bg`, `--c-surface`, `--c-text`, `--c-accent`, etc.) and utility classes (`.btn`, `.badge`, `.fade-in`) are provided by `construct.css` for theme-aware styling.
-
-## Links
-
-- [App SDK](https://www.npmjs.com/package/@construct-computer/app-sdk)
-- [Use this template](https://github.com/construct-computer/construct-app-sample/generate)
-- [App Store](https://registry.construct.computer)
-- [Developer Docs](https://registry.construct.computer/publish)
+Connect your Construct OS Desktop to `http://localhost:8787` in Developer Mode.

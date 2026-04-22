@@ -1,164 +1,622 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Sample App</title>
-    <link rel="stylesheet" href="/sdk/construct.css">
-    <script src="/sdk/construct.js"></script>
-    <style>
-      h1 { margin: 0 0 4px; font-size: 20px; font-weight: 600; }
-      p.subtitle { margin: 0 0 16px; color: var(--c-text-secondary, rgba(228,228,237,0.7)); font-size: 13px; }
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Sentry Auto-Triage</title>
+  <script src="https://registry.construct.computer/sdk/construct.js"></script>
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=DM+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0 }
 
-      textarea {
-        width: 100%;
-        box-sizing: border-box;
-        background: var(--c-surface, rgba(255,255,255,0.04));
-        color: var(--c-text, #e4e4ed);
-        border: 1px solid var(--c-border, rgba(255,255,255,0.08));
-        border-radius: var(--c-radius-md, 10px);
-        padding: 10px 12px;
-        font-family: inherit;
-        font-size: 13px;
-        resize: vertical;
-        min-height: 80px;
-      }
-      textarea:focus {
-        outline: none;
-        border-color: var(--c-accent, #6366f1);
-      }
+    :root {
+      --red: #f43f5e;
+      --rdim: rgba(244,63,94,.13);
+      --rglow: rgba(244,63,94,.3);
+      --grn: #10b981;
+      --gdim: rgba(16,185,129,.12);
+      --yel: #f59e0b;
+      --bg: #0b0b0f;
+      --s1: rgba(255,255,255,.03);
+      --s2: rgba(255,255,255,.065);
+      --bdr: rgba(255,255,255,.07);
+      --txt: #e8eaf0;
+      --mu: #52566b;
+      --mu2: #8b8fa8;
+      --r: 12px;
+    }
 
-      .group { margin-bottom: 12px; }
-      .group-label {
-        font-size: 11px;
-        font-weight: 600;
-        text-transform: uppercase;
-        letter-spacing: 0.04em;
-        color: var(--c-text-muted, rgba(228,228,237,0.4));
-        margin-bottom: 6px;
-      }
-      .group-buttons { display: flex; flex-wrap: wrap; gap: 6px; }
+    html, body { height: 100%; font-family: 'DM Sans', sans-serif; background: var(--bg); color: var(--txt) }
 
-      button {
-        background: var(--c-surface, rgba(255,255,255,0.04));
-        color: var(--c-text, #e4e4ed);
-        border: 1px solid var(--c-border, rgba(255,255,255,0.08));
-        border-radius: var(--c-radius-sm, 6px);
-        padding: 6px 12px;
-        font-family: inherit;
-        font-size: 12px;
-        cursor: pointer;
-        transition: background 120ms ease, border-color 120ms ease;
-      }
-      button:hover {
-        background: var(--c-accent-muted, rgba(99,102,241,0.15));
-        border-color: var(--c-accent, #6366f1);
-      }
-      button:disabled { opacity: 0.5; cursor: not-allowed; }
+    body {
+      display: flex; flex-direction: column; align-items: center;
+      padding: 20px 14px 50px;
+      background-image:
+        radial-gradient(ellipse 55% 22% at 50% 0%, rgba(244,63,94,.08), transparent),
+        radial-gradient(ellipse 30% 30% at 80% 80%, rgba(16,185,129,.04), transparent);
+      min-height: 100vh;
+    }
 
-      .output {
-        background: var(--c-surface, rgba(255,255,255,0.04));
-        border: 1px solid var(--c-border, rgba(255,255,255,0.08));
-        border-radius: var(--c-radius-md, 10px);
-        padding: 12px;
-        font-family: var(--c-font-mono, "SF Mono", ui-monospace, monospace);
-        font-size: 12.5px;
-        white-space: pre-wrap;
-        word-break: break-word;
-        min-height: 48px;
-      }
-      .output.error { color: var(--c-error, #ef4444); }
-      .label { font-size: 12px; color: var(--c-text-secondary, rgba(228,228,237,0.7)); margin-bottom: 6px; }
-    </style>
+    .page { width: 100%; max-width: 540px; display: flex; flex-direction: column; gap: 10px }
+
+    header { display: flex; align-items: center; gap: 12px; margin-bottom: 2px }
+    .logo {
+      width: 40px; height: 40px; flex-shrink: 0; border-radius: 11px;
+      background: linear-gradient(135deg, #f43f5e, #9f1239);
+      display: flex; align-items: center; justify-content: center;
+      box-shadow: 0 0 18px var(--rglow);
+    }
+    .logo svg { width: 18px; height: 18px; fill: #fff }
+    header h1 { font-size: 15px; font-weight: 700; letter-spacing: -.2px }
+    header p  { font-size: 11px; color: var(--mu2); margin-top: 2px }
+
+    .chips { display: flex; gap: 6px; flex-wrap: wrap }
+    .chip {
+      display: flex; align-items: center; gap: 5px;
+      background: var(--s1); border: 1px solid var(--bdr);
+      border-radius: 999px; padding: 3px 10px;
+      font-size: 10.5px; font-weight: 500; color: var(--mu2);
+    }
+    .dot { width: 5px; height: 5px; border-radius: 50%; background: var(--grn) }
+
+    .statusbar {
+      display: flex; align-items: center; justify-content: space-between;
+      background: var(--s1); border: 1px solid var(--bdr); border-radius: 9px;
+      padding: 8px 13px; font-size: 11.5px;
+    }
+    .listening { display: flex; align-items: center; gap: 7px; color: var(--grn); font-weight: 500 }
+    .pulse {
+      width: 7px; height: 7px; border-radius: 50%; background: var(--grn);
+      animation: pulse 2s infinite;
+    }
+    @keyframes pulse {
+      0%   { box-shadow: 0 0 0 0 rgba(16,185,129,.7) }
+      70%  { box-shadow: 0 0 0 7px rgba(16,185,129,0) }
+      100% { box-shadow: 0 0 0 0 rgba(16,185,129,0) }
+    }
+    .cnt { font-size: 11.5px; color: var(--mu2) }
+    .cnt span { color: var(--txt); font-weight: 600 }
+
+    .cfg { background: var(--s1); border: 1px solid var(--bdr); border-radius: var(--r); overflow: hidden }
+    .cfg-hdr {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 11px 14px; cursor: pointer; user-select: none;
+    }
+    .cfg-hdr:hover { background: rgba(255,255,255,.02) }
+    .cfg-title { font-size: 12.5px; font-weight: 600 }
+    .cfg-right { display: flex; align-items: center; gap: 7px }
+    .cfg-st {
+      font-size: 10px; font-weight: 700; padding: 2px 8px;
+      border-radius: 999px; text-transform: uppercase; letter-spacing: .4px;
+    }
+    .cfg-st.ok   { background: var(--gdim); color: var(--grn) }
+    .cfg-st.warn { background: rgba(245,158,11,.12); color: var(--yel) }
+    .chv { color: var(--mu); font-size: 10px; transition: transform .2s }
+    .chv.open { transform: rotate(180deg) }
+    .cfg-body { display: none; padding: 0 14px 14px }
+    .cfg-body.open { display: block }
+    .row { display: flex; gap: 8px; margin-top: 10px }
+    .field { flex: 1 }
+    .field label {
+      display: block; font-size: 9.5px; font-weight: 600; color: var(--mu);
+      text-transform: uppercase; letter-spacing: .8px; margin-bottom: 4px;
+    }
+    .field input {
+      width: 100%; background: rgba(0,0,0,.4); border: 1px solid var(--bdr);
+      border-radius: 7px; color: var(--txt);
+      font-family: 'IBM Plex Mono', monospace; font-size: 11px;
+      padding: 7px 9px; outline: none; transition: border-color .2s;
+    }
+    .field input:focus { border-color: rgba(244,63,94,.4) }
+    .field input::placeholder { color: var(--mu) }
+    .save-btn {
+      margin-top: 11px; width: 100%; padding: 8px;
+      background: var(--rdim); border: 1px solid rgba(244,63,94,.22);
+      color: var(--red); font-family: inherit; font-size: 12px; font-weight: 600;
+      border-radius: 7px; cursor: pointer; transition: background .15s;
+    }
+    .save-btn:hover { background: rgba(244,63,94,.2) }
+    .save-ok { text-align: center; font-size: 11.5px; color: var(--grn); margin-top: 6px; display: none }
+
+    .trigger {
+      width: 100%; padding: 14px 20px;
+      background: linear-gradient(135deg, #f43f5e, #be123c);
+      color: #fff; font-family: inherit; font-size: 14px; font-weight: 700;
+      border: none; border-radius: var(--r); cursor: pointer;
+      display: flex; align-items: center; justify-content: center; gap: 9px;
+      box-shadow: 0 4px 20px var(--rglow), inset 0 1px 0 rgba(255,255,255,.12);
+      transition: transform .15s, box-shadow .15s;
+    }
+    .trigger:hover:not(:disabled) { transform: translateY(-2px); box-shadow: 0 8px 26px rgba(244,63,94,.45) }
+    .trigger:disabled { opacity: .5; cursor: not-allowed }
+    .ico-play { display: block }
+    .ico-spin { display: none; animation: spin .8s linear infinite }
+    .trigger.running .ico-play { display: none }
+    .trigger.running .ico-spin { display: block }
+    @keyframes spin { to { transform: rotate(360deg) } }
+
+    .pipeline {
+      display: flex; align-items: center;
+      background: var(--s1); border: 1px solid var(--bdr);
+      border-radius: 9px; padding: 10px 11px;
+    }
+    .ps { flex: 1; text-align: center; font-size: 9.5px; color: var(--mu) }
+    .ps .ic { font-size: 13px; display: block; margin-bottom: 2px; filter: grayscale(1) opacity(.25); transition: filter .3s }
+    .ps .lb { font-weight: 500; transition: color .3s }
+    .ps.active .ic { filter: none }
+    .ps.active .lb { color: var(--yel) }
+    .ps.done .ic { filter: none }
+    .ps.done .lb { color: var(--grn) }
+    .arr { color: var(--bdr); font-size: 10px; flex-shrink: 0; padding: 0 1px }
+
+    .logcard { background: var(--s1); border: 1px solid var(--bdr); border-radius: var(--r); overflow: hidden; display: none }
+    .loghdr {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 7px 13px; border-bottom: 1px solid var(--bdr);
+      font-size: 9.5px; font-weight: 600; color: var(--mu);
+      text-transform: uppercase; letter-spacing: 1px;
+    }
+    .ldot { width: 6px; height: 6px; border-radius: 50%; background: var(--red); animation: blink 1.5s infinite }
+    @keyframes blink {
+      0%  { box-shadow: 0 0 0 0 rgba(244,63,94,.8) }
+      70% { box-shadow: 0 0 0 5px rgba(244,63,94,0) }
+      100%{ box-shadow: 0 0 0 0 rgba(244,63,94,0) }
+    }
+    .logbody {
+      padding: 9px 13px; max-height: 150px; overflow-y: auto;
+      font-family: 'IBM Plex Mono', monospace; font-size: 10px; line-height: 1.9;
+    }
+    .ll { display: flex; gap: 9px }
+    .ll .ts  { color: var(--mu); flex-shrink: 0; font-size: 8.5px; padding-top: 1px }
+    .ll .msg { color: var(--mu2) }
+    .ll.ok   .msg { color: #34d399 }
+    .ll.err  .msg { color: #fb7185 }
+    .ll.hd   .msg { color: #c084fc; font-weight: 600 }
+    .ll.info .msg { color: #60a5fa }
+
+    .whbox { background: var(--s1); border: 1px solid var(--bdr); border-radius: var(--r); padding: 12px 14px }
+    .whbox h3 { font-size: 12px; font-weight: 600; margin-bottom: 3px }
+    .whbox p  { font-size: 11px; color: var(--mu2); margin-bottom: 8px; line-height: 1.5 }
+    .urlrow { display: flex; gap: 7px }
+    .urldisp {
+      flex: 1; background: rgba(0,0,0,.35); border: 1px solid var(--bdr);
+      border-radius: 7px; padding: 7px 9px;
+      font-family: 'IBM Plex Mono', monospace; font-size: 9.5px; color: var(--mu2);
+      overflow: hidden; white-space: nowrap; text-overflow: ellipsis;
+    }
+    .copybtn {
+      background: var(--s2); border: 1px solid var(--bdr); color: var(--txt);
+      font-family: inherit; font-size: 11px; font-weight: 600;
+      padding: 0 12px; border-radius: 7px; cursor: pointer;
+      transition: background .15s; white-space: nowrap;
+    }
+    .copybtn:hover { background: rgba(255,255,255,.09) }
+    .copybtn.copied { color: var(--grn); border-color: rgba(16,185,129,.3) }
+
+    .sectitle { font-size: 10px; font-weight: 600; color: var(--mu); text-transform: uppercase; letter-spacing: 1px; display: none }
+    .incidents { display: flex; flex-direction: column; gap: 8px }
+    .incident {
+      background: var(--s1); border: 1px solid var(--bdr);
+      border-radius: 10px; padding: 11px 13px;
+      display: flex; align-items: center; gap: 10px;
+      animation: sli .3s cubic-bezier(.16,1,.3,1) both;
+    }
+    @keyframes sli { from { opacity:0; transform: translateY(4px) } to { opacity:1; transform: none } }
+    .iico {
+      width: 30px; height: 30px; flex-shrink: 0; border-radius: 8px;
+      display: flex; align-items: center; justify-content: center; font-size: 13px;
+    }
+    .iico.working { background: rgba(245,158,11,.12); animation: pb 1.5s ease-in-out infinite alternate }
+    .iico.done    { background: var(--gdim) }
+    .iico.fail    { background: rgba(244,63,94,.1) }
+    @keyframes pb { from { opacity:.55 } to { opacity:1 } }
+    .iinfo { flex: 1; min-width: 0 }
+    .iname { font-size: 12px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis }
+    .isub  { font-size: 10.5px; color: var(--mu2); margin-top: 2px }
+    .itime { font-size: 10.5px; color: var(--mu); flex-shrink: 0 }
+    .badge { font-size: 9.5px; font-weight: 700; padding: 2px 7px; border-radius: 999px; text-transform: uppercase; flex-shrink: 0 }
+    .badge.error { background: rgba(245,158,11,.14); color: #fbbf24 }
+    .badge.fatal { background: var(--rdim); color: #fb7185 }
+  </style>
 </head>
-  <body>
-    <h1>Sample App</h1>
-    <p class="subtitle">Text utilities plus a live demo of calling platform tools.</p>
+<body>
+<div class="page">
 
-    <div class="label">Input</div>
-    <textarea id="input" placeholder="Type or paste text here…">Hello, World! 👋</textarea>
+  <header>
+    <div class="logo">
+      <svg viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z"/></svg>
+    </div>
+    <div>
+      <h1>Sentry Auto-Triage</h1>
+      <p>Sentry → GitHub → Linear → Slack, fully automated</p>
+    </div>
+  </header>
 
-    <div class="group">
-      <div class="group-label">Text</div>
-      <div class="group-buttons">
-        <button data-tool="slugify">Slugify</button>
-        <button data-tool="word_count">Word count</button>
-        <button data-tool="reverse">Reverse</button>
+  <div class="chips">
+    <div class="chip"><span class="dot"></span>Sentry</div>
+    <div class="chip"><span class="dot"></span>GitHub</div>
+    <div class="chip"><span class="dot"></span>Linear</div>
+    <div class="chip"><span class="dot"></span>Slack</div>
+  </div>
+
+  <div class="statusbar">
+    <div class="listening"><div class="pulse"></div>Listening for alerts</div>
+    <div class="cnt">Triaged: <span id="totalCount">0</span></div>
+  </div>
+
+  <!-- Config -->
+  <div class="cfg">
+    <div class="cfg-hdr" onclick="toggleCfg()">
+      <span class="cfg-title">⚙️ Project Configuration</span>
+      <div class="cfg-right">
+        <span class="cfg-st warn" id="cfgSt">Not configured</span>
+        <span class="chv" id="cfgChv">▼</span>
       </div>
     </div>
-
-    <div class="group">
-      <div class="group-label">JSON</div>
-      <div class="group-buttons">
-        <button data-tool="json_format">Format</button>
-        <button data-tool="json_format" data-args='{"mode":"minify"}'>Minify</button>
-        <button data-tool="json_format" data-args='{"mode":"validate"}'>Validate</button>
+    <div class="cfg-body" id="cfgBody">
+      <div class="row">
+        <div class="field"><label>Sentry Org</label><input id="iOrg" placeholder="my-company"></div>
+        <div class="field"><label>Sentry Project</label><input id="iProj" placeholder="backend-api"></div>
       </div>
-    </div>
-
-    <div class="group">
-      <div class="group-label">Encode / Decode</div>
-      <div class="group-buttons">
-        <button data-tool="base64" data-args='{"mode":"encode"}'>Base64 encode</button>
-        <button data-tool="base64" data-args='{"mode":"decode"}'>Base64 decode</button>
-        <button data-tool="url_encode" data-args='{"mode":"encode"}'>URL encode</button>
-        <button data-tool="url_encode" data-args='{"mode":"decode"}'>URL decode</button>
+      <div class="row">
+        <div class="field"><label>GitHub Repo</label><input id="iRepo" placeholder="acme/backend"></div>
+        <div class="field"><label>Slack Channel</label><input id="iSlack" placeholder="#incidents"></div>
       </div>
-    </div>
-
-    <div class="group">
-      <div class="group-label">Hash</div>
-      <div class="group-buttons">
-        <button data-tool="hash">SHA-256</button>
-        <button data-tool="hash" data-args='{"algorithm":"SHA-1"}'>SHA-1</button>
-        <button data-tool="hash" data-args='{"algorithm":"SHA-384"}'>SHA-384</button>
-        <button data-tool="hash" data-args='{"algorithm":"SHA-512"}'>SHA-512</button>
+      <div class="row">
+        <div class="field"><label>GitHub Branch</label><input id="iBranch" placeholder="main"></div>
+        <div class="field"><label>Linear Team ID</label><input id="iTeam" placeholder="team-id-here"></div>
       </div>
-    </div>
-
-    <div class="group">
-      <div class="group-label">Generate</div>
-      <div class="group-buttons">
-        <button data-tool="uuid">UUID</button>
-        <button data-tool="uuid" data-args='{"count":5}'>5 UUIDs</button>
-        <button data-tool="timestamp">Now</button>
-        <button data-tool="timestamp" data-label="parse">Parse timestamp</button>
+      <div class="row">
+        <div class="field"><label>GitHub Token (Required for Blame)</label><input id="iToken" type="password" placeholder="ghp_..."></div>
       </div>
+      <button class="save-btn" onclick="saveCfg()">💾 Save Configuration</button>
+      <div class="save-ok" id="saveOk">✓ Saved</div>
     </div>
+  </div>
 
-    <div class="group">
-      <div class="group-label">Platform (via ctx.construct)</div>
-      <div class="group-buttons">
-        <button
-          data-tool="send_notification"
-          data-args='{"title":"Hello from Text Tools","body":"This notification was sent via the platform.","variant":"info"}'
-          data-skip-input>
-          Send test notification
-        </button>
-        <button
-          data-tool="send_notification"
-          data-args='{"title":"All set","body":"Your task finished successfully.","variant":"success"}'
-          data-skip-input>
-          Success notification
-        </button>
-        <button
-          data-tool="list_upcoming_events"
-          data-args='{"days":7,"max_results":5}'
-          data-skip-input>
-          Upcoming events (7d)
-        </button>
-        <button
-          data-tool="list_upcoming_events"
-          data-args='{"days":1,"max_results":10}'
-          data-skip-input>
-          Today
-        </button>
-      </div>
+  <!-- Trigger -->
+  <button class="trigger" id="trigBtn" onclick="runTriage()">
+    <svg class="ico-play" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
+      <polygon points="5 3 19 12 5 21 5 3"/>
+    </svg>
+    <svg class="ico-spin" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
+      <path d="M21 12a9 9 0 1 1-9-9"/>
+    </svg>
+    <span id="btnLbl">Scan Sentry &amp; Run Full Triage</span>
+  </button>
+
+  <!-- Pipeline -->
+  <div class="pipeline">
+    <div class="ps" id="ps1"><span class="ic">🔍</span><span class="lb">Fetch</span></div>
+    <span class="arr">›</span>
+    <div class="ps" id="ps2"><span class="ic">⚡</span><span class="lb">Triage</span></div>
+    <span class="arr">›</span>
+    <div class="ps" id="ps3"><span class="ic">👤</span><span class="lb">Blame</span></div>
+    <span class="arr">›</span>
+    <div class="ps" id="ps4"><span class="ic">🎫</span><span class="lb">Linear</span></div>
+    <span class="arr">›</span>
+    <div class="ps" id="ps5"><span class="ic">💬</span><span class="lb">Slack</span></div>
+    <span class="arr">›</span>
+    <div class="ps" id="ps6"><span class="ic">✅</span><span class="lb">Done</span></div>
+  </div>
+
+  <!-- Log -->
+  <div class="logcard" id="logCard">
+    <div class="loghdr">
+      <div style="display:flex;align-items:center;gap:7px"><div class="ldot"></div>Agent Log</div>
+      <span id="logN">0 events</span>
     </div>
+    <div class="logbody" id="logBody"></div>
+  </div>
 
-    <div class="label">Output</div>
-    <div id="output" class="output">—</div>
+  <!-- Webhook -->
+  <div class="whbox">
+    <h3>⚡ Webhook Auto-Trigger</h3>
+    <p>Paste this URL into your Sentry alert rule to auto-triage every new error.</p>
+    <div class="urlrow">
+      <div class="urldisp" id="whUrl">Loading...</div>
+      <button class="copybtn" id="copyBtn" onclick="copyUrl()">Copy</button>
+    </div>
+  </div>
 
-    <script src="app.js"></script>
-  </body>
+  <div class="sectitle" id="histTitle">Recent Incidents</div>
+  <div class="incidents" id="incList"></div>
+
+</div>
+<script>
+  var cfg    = {};
+  var triaged = 0;
+  var logN   = 0;
+  var steps  = ['ps1','ps2','ps3','ps4','ps5','ps6'];
+  var WORKER = 'https://construct-app-text-tools.naikprathamesh782.workers.dev';
+
+  // ── Init ───────────────────────────────────────────────────────────────────
+  construct.ready(function () {
+    construct.ui.setTitle('Sentry Auto-Triage');
+    document.getElementById('whUrl').textContent = WORKER + '/webhook';
+    construct.state.get().then(function (s) {
+      if (s && s.config) { cfg = s.config; applyConfig(cfg); }
+      if (!cfg.sentryOrg) toggleCfg(true);
+    }).catch(function () { toggleCfg(true); });
+    setInterval(pollWebhooks, 3000);
+  });
+
+  // ── Config ─────────────────────────────────────────────────────────────────
+  function applyConfig(c) {
+    if (c.sentryOrg)    document.getElementById('iOrg').value    = c.sentryOrg;
+    if (c.sentryProj)   document.getElementById('iProj').value   = c.sentryProj;
+    if (c.githubRepo)   document.getElementById('iRepo').value   = c.githubRepo;
+    if (c.slackChannel) document.getElementById('iSlack').value  = c.slackChannel;
+    if (c.branch)       document.getElementById('iBranch').value = c.branch;
+    if (c.linearTeam)   document.getElementById('iTeam').value   = c.linearTeam;
+    if (c.githubToken)  document.getElementById('iToken').value  = c.githubToken;
+    var ok = c.sentryOrg && c.sentryProj && c.slackChannel && c.githubToken;
+    var el = document.getElementById('cfgSt');
+    el.textContent = ok ? 'Configured ✓' : 'Incomplete';
+    el.className = 'cfg-st ' + (ok ? 'ok' : 'warn');
+  }
+
+  function toggleCfg(force) {
+    var b = document.getElementById('cfgBody');
+    var c = document.getElementById('cfgChv');
+    var open = (force === true) ? true : !b.classList.contains('open');
+    b.classList.toggle('open', open);
+    c.classList.toggle('open', open);
+  }
+
+  function saveCfg() {
+    cfg = {
+      sentryOrg:    document.getElementById('iOrg').value.trim(),
+      sentryProj:   document.getElementById('iProj').value.trim(),
+      githubRepo:   document.getElementById('iRepo').value.trim(),
+      slackChannel: document.getElementById('iSlack').value.trim() || '#incidents',
+      branch:       document.getElementById('iBranch').value.trim() || 'main',
+      linearTeam:   document.getElementById('iTeam').value.trim(),
+      githubToken:  document.getElementById('iToken').value.trim(),
+    };
+    construct.state.set({ config: cfg }).catch(function () {});
+    applyConfig(cfg);
+    var ok = document.getElementById('saveOk');
+    ok.style.display = 'block';
+    setTimeout(function () { ok.style.display = 'none'; }, 2000);
+  }
+
+  // ── Log ────────────────────────────────────────────────────────────────────
+  function ts() { return new Date().toLocaleTimeString('en', { hour12: false }); }
+
+  function addLog(msg, type) {
+    document.getElementById('logCard').style.display = 'block';
+    logN++;
+    document.getElementById('logN').textContent = logN + ' events';
+    var b = document.getElementById('logBody');
+    var r = document.createElement('div');
+    r.className = 'll ' + (type || '');
+    r.innerHTML = '<span class="ts">' + ts() + '</span><span class="msg">'
+      + String(msg).replace(/&/g,'&amp;').replace(/</g,'&lt;') + '</span>';
+    b.appendChild(r);
+    b.scrollTop = b.scrollHeight;
+  }
+
+  // ── Pipeline ───────────────────────────────────────────────────────────────
+  function setStep(n, state) {
+    steps.forEach(function (id, i) {
+      var el = document.getElementById(id);
+      if (i + 1 === n)    el.className = 'ps ' + state;
+      else if (i + 1 < n) el.className = 'ps done';
+      else                 el.className = 'ps';
+    });
+  }
+
+  function resetPipeline() {
+    steps.forEach(function (id) { document.getElementById(id).className = 'ps'; });
+    document.getElementById('logCard').style.display = 'none';
+    document.getElementById('logBody').innerHTML = '';
+    logN = 0;
+    document.getElementById('logN').textContent = '0 events';
+  }
+
+  // ── Incident cards ─────────────────────────────────────────────────────────
+  var icons = { working: '⏳', done: '✅', fail: '❌' };
+
+  function escHtml(s) {
+    return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  }
+
+  function addIncident(title, level, status, sub) {
+    document.getElementById('histTitle').style.display = 'block';
+    var el = document.createElement('div');
+    el.className = 'incident';
+    el.innerHTML =
+      '<div class="iico ' + status + '">' + icons[status] + '</div>' +
+      '<div class="iinfo">' +
+        '<div class="iname">' + escHtml(title) + '</div>' +
+        '<div class="isub">'  + escHtml(sub)   + '</div>' +
+      '</div>' +
+      '<span class="badge ' + (level || 'error') + '">' + (level || 'ERROR').toUpperCase() + '</span>' +
+      '<div class="itime">' + ts() + '</div>';
+    document.getElementById('incList').prepend(el);
+    return el;
+  }
+
+  function updateIncident(el, status, sub) {
+    el.querySelector('.iico').className   = 'iico ' + status;
+    el.querySelector('.iico').textContent = icons[status];
+    el.querySelector('.isub').textContent = sub;
+  }
+
+  // ── Prompt — short and direct, tools registered via mcpServers ────────────
+  function buildPrompt(issueId) {
+    var org    = cfg.sentryOrg    || 'your-org';
+    var proj   = cfg.sentryProj   || 'your-project';
+    var repo   = cfg.githubRepo   || '';
+    var ch     = cfg.slackChannel || '#incidents';
+    var branch = cfg.branch       || 'main';
+    var team   = cfg.linearTeam   || '';
+    var token  = cfg.githubToken  || '';
+
+    var header = [
+      'You have 5 custom MCP tools registered from sentry-auto-agent:',
+      '  triage_issue, blame_code_line, create_ticket_and_notify,',
+      '  deduplicate_check, record_triage',
+      'Use them directly — do NOT perform these steps manually.',
+      ''
+    ].join('\n');
+
+    var task;
+
+    if (issueId) {
+      task = [
+        'TASK: Triage Sentry issue ' + issueId,
+        'org="' + org + '" project="' + proj + '" slack=' + ch +
+          (repo ? ' github=' + repo : '') + ' branch=' + branch +
+          (team ? ' linear_team=' + team : ''),
+        '',
+        'STEP 1: deduplicate_check(issue_id="' + issueId + '")',
+        '        If already_triaged=true → report existing ticket and STOP.',
+        '',
+        'STEP 2: SENTRY_GET_ORGANIZATION_ISSUE_DETAILS(issue_id="' + issueId + '")',
+        '        + SENTRY_FETCH_ISSUE_EVENT_BY_ID(event_id=<latestEvent.id>)',
+        '',
+        'STEP 3: triage_issue(issue_json=<issue>, event_json=<event>)',
+        '        Saves: culpritFile, culpritLine, priority, priorityNum, action,',
+        '               stackSummary, isRegression, regressionEvidence, errorType.',
+        '',
+        'STEP 4: blame_code_line(repo="' + (repo || 'owner/repo') + '",',
+        '          file_path=<culpritFile>, line_number=<culpritLine>, branch="' + branch + '", github_token="' + token + '")',
+        '',
+        'STEP 5: create_ticket_and_notify(all data from steps 2-4)',
+        '        → LINEAR_CREATE_LINEAR_ISSUE(title="[SENTRY] <title>",',
+        '            description=<linearMd>, priority=<priorityNum>' +
+          (team ? ', team_id="' + team + '"' : '') + ')',
+        '        → SLACK_SEND_MESSAGE(channel="' + ch + '", text=<slackText with ticket filled in>)',
+        '',
+        'STEP 6: record_triage(issue_id="' + issueId + '", ticket_id, ticket_url)',
+        '',
+        'No confirmation needed. Execute now.'
+      ].join('\n');
+    } else {
+      task = [
+        'TASK: Manual Sentry triage',
+        'org="' + org + '" project="' + proj + '" slack=' + ch +
+          (repo ? ' github=' + repo : '') + ' branch=' + branch +
+          (team ? ' linear_team=' + team : ''),
+        '',
+        'STEP 1: SENTRY_RETRIEVE_PROJECT_ISSUES_LIST(org="' + org + '", project="' + proj + '", limit=3)',
+        '        Note each: id, title, level, count, firstSeen, lastSeen, latestEvent.id',
+        '',
+        'For EACH issue run steps 2-6:',
+        '',
+        'STEP 2: deduplicate_check(issue_id)',
+        '        If already_triaged=true → skip entirely.',
+        '',
+        'STEP 3: SENTRY_GET_ORGANIZATION_ISSUE_DETAILS(issue_id)',
+        '        + SENTRY_FETCH_ISSUE_EVENT_BY_ID(event_id=<latestEvent.id>)',
+        '',
+        'STEP 4: triage_issue(issue_json=<issue>, event_json=<event>)',
+        '',
+        'STEP 5: blame_code_line(repo="' + (repo || 'owner/repo') + '",',
+        '          file_path=<culpritFile>, line_number=<culpritLine>, branch="' + branch + '", github_token="' + token + '")',
+        '',
+        'STEP 6: create_ticket_and_notify(all data from steps 3-5)',
+        '        → LINEAR_CREATE_LINEAR_ISSUE(title="[SENTRY] <title>",',
+        '            description=<linearMd>, priority=<priorityNum>' +
+          (team ? ', team_id="' + team + '"' : '') + ')',
+        '        → SLACK_SEND_MESSAGE(channel="' + ch + '", text=<slackText with ticket filled in>)',
+        '        → record_triage(issue_id, ticket_id, ticket_url)',
+        '',
+        'Complete all 3 issues. No confirmation needed. Start now.'
+      ].join('\n');
+    }
+
+    return header + task;
+  }
+
+  // ── Dispatch — registers MCP tools inline every call ──────────────────────
+  async function dispatch(issueId) {
+    addLog('Registering MCP tools + dispatching...', 'hd');
+    addLog('triage_issue · blame_code_line · create_ticket_and_notify', 'info');
+
+    await construct.agent.notify(buildPrompt(issueId), {
+      mcpServers: [
+        {
+          type: 'url',
+          url:  WORKER + '/mcp',
+          name: 'sentry-auto-agent'
+        }
+      ]
+    });
+
+    addLog('Agent activated — tools registered. Check Construct chat.', 'ok');
+  }
+
+  // ── Manual triage ──────────────────────────────────────────────────────────
+  async function runTriage() {
+    var btn = document.getElementById('trigBtn');
+    var lbl = document.getElementById('btnLbl');
+    btn.disabled = true;
+    btn.classList.add('running');
+    lbl.textContent = 'Activating Agent...';
+    resetPipeline();
+    setStep(1, 'active');
+    var card = addIncident('Manual Triage Scan', 'error', 'working', 'Running 6-step pipeline...');
+    [1100, 3500, 6000, 8500, 11000, 13500].forEach(function (d, i) {
+      setTimeout(function () { setStep(i + 1, i < 5 ? 'done' : 'active'); }, d);
+    });
+    try {
+      await dispatch(null);
+      setTimeout(function () {
+        updateIncident(card, 'done', 'Agent dispatched — check Construct chat');
+        triaged++;
+        document.getElementById('totalCount').textContent = triaged;
+      }, 800);
+    } catch (e) {
+      addLog('Error: ' + e.message, 'err');
+      updateIncident(card, 'fail', e.message);
+    } finally {
+      btn.disabled = false;
+      btn.classList.remove('running');
+      lbl.textContent = 'Scan Sentry & Run Full Triage';
+    }
+  }
+
+  // ── Webhook poll ───────────────────────────────────────────────────────────
+  async function pollWebhooks() {
+    try {
+      var res = await fetch(WORKER + '/pending');
+      if (!res.ok) return;
+      var data = await res.json();
+      var pending = data.pending || [];
+      for (var i = 0; i < pending.length; i++) {
+        var id = pending[i];
+        addLog('Webhook — Sentry Alert #' + id, 'hd');
+        var card = addIncident('Sentry Alert #' + id, 'error', 'working', 'Auto-triaging...');
+        setStep(1, 'active');
+        [1000, 3000, 5500, 8000, 11000, 14000].forEach(function (d, j) {
+          setTimeout(function () { setStep(j + 1, 'done'); }, d);
+        });
+        try {
+          await dispatch(id);
+          triaged++;
+          document.getElementById('totalCount').textContent = triaged;
+          setTimeout(function () { updateIncident(card, 'done', 'Done — Linear + Slack notified'); }, 800);
+        } catch (e) {
+          addLog('Error: ' + e.message, 'err');
+          updateIncident(card, 'fail', e.message);
+        }
+      }
+    } catch (e) { /* silent */ }
+  }
+
+  // ── Copy webhook URL ───────────────────────────────────────────────────────
+  function copyUrl() {
+    var url = document.getElementById('whUrl').textContent;
+    navigator.clipboard.writeText(url).then(function () {
+      var b = document.getElementById('copyBtn');
+      b.textContent = 'Copied!';
+      b.classList.add('copied');
+      setTimeout(function () { b.textContent = 'Copy'; b.classList.remove('copied'); }, 2000);
+    });
+  }
+</script>
+</body>
 </html>
